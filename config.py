@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 model_data = os.environ.get('ENTITY_DETECTOR_MODEL_DIR')
 stanford_core_nlp_dir = os.environ.get('STANFORD_CORE_NLP')
