@@ -6,7 +6,6 @@ stanford_ner_dir = os.environ.get('STANFORD_NER_DIR')
 mongo_id = os.environ.get('MONGODB_ID')
 mongo_pass = os.environ.get('MONGODB_PASS')
 mongo_host = os.environ.get('MONGODB_HOST')
-print(model_data)
 
 
 class Params:
