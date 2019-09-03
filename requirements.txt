@@ -10,7 +10,6 @@ Click==7.0
 cymem==2.0.2
 decorator==4.4.0
 docutils==0.15.2
-en-core-web-sm==2.1.0
 Flask==1.1.1
 Flask-Cors==3.0.8
 future==0.17.1
