@@ -7,7 +7,9 @@ from src import nlpent
 from keras import backend as K
 import json
 from pycorenlp import StanfordCoreNLP
+import os
 import sys
+import config
 import pandas as pd
 from rake_nltk import Rake
 
@@ -15,7 +17,6 @@ app = Flask(__name__)
 app.config["DEBUG"] = False
 CORS(app)
 nlp_corenlp = StanfordCoreNLP('http://localhost:9000')
-keras_models.model_params['wordembeddings'] = "data/resources/glove/glove.6B.50d.txt"
 
 
 def getkeys(text):

@@ -1,32 +1,31 @@
 import glob
-from polyglot.text import Text
-import nltk
-import re
-import spacy
-from pycorenlp import StanfordCoreNLP
-from nltk.tag import StanfordNERTagger
-from nltk.tokenize import word_tokenize
-import pymongo
-from tqdm import tqdm
 import json
-from joblib import Parallel, delayed
-from fuzzywuzzy import process
+import re
+import config
 import gensim
 import gensim.corpora as corpora
-from gensim.utils import simple_preprocess
-from nltk.corpus import stopwords
-from sklearn.metrics import silhouette_score
+import nltk
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
-from sklearn.pipeline import make_pipeline
-from sklearn.feature_extraction.text import TfidfTransformer
+import pymongo
+import spacy
 from gensim.models import Word2Vec
+from gensim.utils import simple_preprocess
+from joblib import Parallel, delayed
+from nltk.corpus import stopwords
+from nltk.tag import StanfordNERTagger
 from nltk.tokenize import WordPunctTokenizer
+from nltk.tokenize import word_tokenize
+from polyglot.text import Text
+from pycorenlp import StanfordCoreNLP
+from sklearn.cluster import KMeans
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import silhouette_score
+from sklearn.pipeline import make_pipeline
+from tqdm import tqdm
 
 tok = WordPunctTokenizer()
 sent_detector = nltk.tokenize.punkt.PunktSentenceTokenizer()
-
 
 nlp = spacy.load('en_core_web_sm')
 nlp_spacy = spacy.load('en_core_web_sm')
@@ -47,15 +46,15 @@ def read_files(path, n):
             item['file_path'] = file_path
             data_tx.append(item)
     df_tx = pd.DataFrame.from_dict(data_tx)
-    if (n>0):
+    if (n > 0):
         df_tx = df_tx.head(n)
     df_tx = df_tx.rename(columns={"id": "doc_id", "content": "text"})
     return df_tx
 
 
-def stanford_ner(argsdict,txt):
+def stanford_ner(txt):
     classified_text = []
-    st = StanfordNERTagger(argsdict['crfpath'],argsdict['nerjarpath'], encoding='utf-8')
+    st = StanfordNERTagger(config.Config.crfpath, config.Config.nerjarpath, encoding='utf-8')
     tokenized_text = word_tokenize(txt)
     classified_text.append(st.tag(tokenized_text))
     return classified_text
@@ -156,7 +155,7 @@ def clean_text(txt):
         # txt = txt.replace('.','')
         txt = stan_core(txt)
     except:
-        return(txt)
+        return (txt)
     return str(txt)
 
 
@@ -294,9 +293,9 @@ def text_spacy_nc(txt, name, idx):
     return ncdf_final
 
 
-def mongowrite(argsdict, collname, df):
-    client = pymongo.MongoClient(argsdict['mongolink'])
-    db = client[argsdict['db']]
+def mongowrite(collname, df):
+    client = pymongo.MongoClient(config.Config.mongolink)
+    db = client[config.Config.db]
     col0 = db[collname]
     try:
         mdict = df.to_dict(orient='records')
@@ -374,53 +373,53 @@ def format_topics_sentences(ldamodel, corpus, texts):
 
 def main(argsdict):
     # read raw data
-    rawdata = read_files(argsdict['rawpath'],argsdict['n'])
+    rawdata = read_files(config.Config.rawpath, config.Config.n)
     filenames = list(rawdata.doc_id)
     # clean and coreference resolution
     stan_core_list = list(map(lambda x: clean_text(x), list(rawdata.text)))
     rawdata['cleaned_coref_text'] = stan_core_list
-    mongowrite(argsdict, argsdict['rawcoll'], rawdata)
+    mongowrite(config.Config.rawcoll, rawdata)
     # upload rawdata to database
     # create sentences
     sents = create_sents(rawdata)
     sents['sent_id'] = sents.groupby('docid').cumcount() + 1
-    mongowrite(argsdict, argsdict['sent_coll'], sents)
+    mongowrite(config.Config.sent_coll, sents)
     # create Stanford NER
     stanner = Parallel(n_jobs=8, backend="multiprocessing")(
-        delayed(stanford_ner)(argsdict,sents.sentences[i]) for i in tqdm(range(0, len(sents))))
+        delayed(stanford_ner)(sents.sentences[i]) for i in tqdm(range(0, len(sents))))
     stanl1, stanl2, stanl3 = stan_sub_list(list(map(lambda x: x[0], stanner)))
     stan_ner_df_final = stan_final(stanl1, stanl2, stanl3, sents)
-    mongowrite(argsdict, argsdict['stan_ner'], stan_ner_df_final)
+    mongowrite(config.Config.stan_ner, stan_ner_df_final)
     # create spacy ner
     df_spacy_ner = Parallel(n_jobs=8, backend="multiprocessing")(
         delayed(text_spacy_ner)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in
         tqdm(range(0, len(sents))))
     df_spacy_ner = [item for sublist in df_spacy_ner for item in sublist]
     df_spacy_ner = pd.DataFrame.from_dict(df_spacy_ner)
-    mongowrite(argsdict, argsdict['spacy_ner'], df_spacy_ner)
+    mongowrite(config.Config.spacy_ner, df_spacy_ner)
     # Get polyglot NER
     df_poly_ner = Parallel(n_jobs=8)(
         delayed(polyglot)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in tqdm(range(0, len(sents))))
     df_poly_ner = [item for sublist in df_poly_ner for item in sublist]
     df_poly_ner = pd.DataFrame.from_dict(df_poly_ner)
-    mongowrite(argsdict, argsdict['poly_ner'], df_poly_ner)
+    mongowrite(config.Config.poly_ner, df_poly_ner)
     # get nltk ner
     df_nltk_ner = Parallel(n_jobs=8)(
         delayed(nltk_ner)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in tqdm(range(0, len(sents))))
     df_nltk_ner = [item for sublist in df_nltk_ner for item in sublist]
     df_nltk_ner = pd.DataFrame.from_dict(df_nltk_ner)
-    mongowrite(argsdict, argsdict['nltk_ner'], df_nltk_ner)
+    mongowrite(config.Config.nltk_ner, df_nltk_ner)
     # get spacy noun chunks
     df_spacy_nc = Parallel(n_jobs=8, backend="multiprocessing")(
         delayed(text_spacy_nc)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in
         tqdm(range(0, len(sents))))
     df_spacy_nc = [item for sublist in df_spacy_nc for item in sublist]
     df_spacy_nc_2 = pd.DataFrame.from_dict(df_spacy_nc)
-    mongowrite(argsdict, argsdict['spacy_nc'], df_spacy_nc_2)
+    mongowrite(config.Config.spacy_nc, df_spacy_nc_2)
     ncdf_ver_doc_sent = df_spacy_nc_2.groupby(['docid', 'sent_id', 'Verb']).size().reset_index(name='counts')
-    mongowrite(argsdict, argsdict['verbbydocsent'], ncdf_ver_doc_sent)
+    mongowrite(config.Config.verbbydocsent, ncdf_ver_doc_sent)
     ncdf_ver = df_spacy_nc_2.groupby(['Verb']).size().reset_index(name='counts')
-    mongowrite(argsdict, argsdict['verb'], ncdf_ver)
+    mongowrite(config.Config.verb, ncdf_ver)
     nerstan_mer, nernltk_mer, nerspacy_mer, nerpoly_mer = df_create_for_merge(stan_ner_df_final, df_nltk_ner,
                                                                               df_spacy_ner, df_poly_ner)
     if all([len(nerstan_mer) > 0, len(nerspacy_mer) > 0]):
@@ -442,8 +441,8 @@ def main(argsdict):
     else:
         ner_common_final_df = pd.DataFrame()
     ner_common_final_df = ner_common_final_df.drop_duplicates()
-    mongowrite(argsdict, argsdict['entgold'], ner_common_final_df)
-    #get curated sets
+    mongowrite(config.Config.entgold, ner_common_final_df)
+    # get curated sets
     # choices = list(set(list(ner_common_final_df.ent)))
     # list_ent_final = []
     # for j in tqdm(range(0, len(choices))):
@@ -468,7 +467,7 @@ def main(argsdict):
     # result = [list(j) for j in set(tuple(j) for j in listcomp)]
     # result = list(map(lambda x: list(filter(None, x)), result))
     # if (len(result) > 0):
-    #     mongowrite(argsdict, argsdict['entcurated'], result)
+    #     mongowrite(config.Config.entcurated, result)
     # topic modeling
     data = rawdata.cleaned_coref_text.values.tolist()
     data_words = list(sent_to_words(data))
@@ -490,7 +489,7 @@ def main(argsdict):
     df_dominant_topic['Document_No'] = rawdata['doc_id']
     df_dominant_topic.dropna(inplace=True)
     tops = lda_model.print_topics()
-    mongowrite(argsdict, argsdict['topic_coll'], df_dominant_topic)
+    mongowrite(config.Config.topic_coll, df_dominant_topic)
     Topics = list(map(lambda x: list(
         map(lambda x: {x.split("*")[1].replace("\"", "").strip(): float(x.split("*")[0])}, x[1].split("+"))), tops))
     tops = []
@@ -500,7 +499,7 @@ def main(argsdict):
         tempdict['topickeys'] = Topics[i]
         tempdict['doc_id'] = list(rawdata.doc_id)
         tops.append(tempdict)
-    mongowrite(argsdict, argsdict['topics'], tops)
+    mongowrite(config.Config.topics, tops)
     # cluster modelling
     hasher = TfidfVectorizer(stop_words='english')
     vector = make_pipeline(hasher, TfidfTransformer())
@@ -533,17 +532,17 @@ def main(argsdict):
     df['document_id'] = rawdata['doc_id']
     df['text'] = rawdata['text']
     cluster_id_doc = df.drop_duplicates()
-    mongowrite(argsdict, argsdict['cluster_df'], cluster_id_doc)
-    mongowrite(argsdict, argsdict['cluster_word_df'], word_list)
+    mongowrite(config.Config.cluster_df, cluster_id_doc)
+    mongowrite(config.Config.cluster_word_df, word_list)
     # create word2vec model
-    wrdembedsent = list(map(lambda x: tok_text(x).split(),list(rawdata['cleaned_coref_text'])))
+    wrdembedsent = list(map(lambda x: tok_text(x).split(), list(rawdata['cleaned_coref_text'])))
     model = Word2Vec(wrdembedsent, min_count=1)
     model.wv.save_word2vec_format('model.txt', binary=False)
     pass
 
 
 if __name__ == "__main__":
-    with open("conf/conf.json",'r') as json_file:
+    with open("conf/conf.json", 'r') as json_file:
         argsdict = json.load(json_file)
     json_file.close()
     main(argsdict)

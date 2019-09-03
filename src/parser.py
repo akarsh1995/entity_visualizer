@@ -12,7 +12,7 @@ import codecs
 
 from src import keras_models
 from src import embeddings
-
+import config
 
 class RelParser:
     def __init__(self, relext_model_name, models_folder="data/modeldata/"):
@@ -28,15 +28,14 @@ class RelParser:
         module_location = os.path.abspath(__file__)
         module_location = os.path.dirname(module_location)
 
-        model_params = keras_models.model_params
-        max_sent_len = keras_models.model_params['max_sent_len']
-        self._embeddings, self._word2idx = embeddings.load(keras_models.model_params['wordembeddings'])
+        model_params = config.params_dict
+        self._embeddings, self._word2idx = embeddings.load(config.Params.wordembeddings)
         print("Loaded embeddings:", self._embeddings.shape)
         self._idx2word = {v: k for k, v in self._word2idx.items()}
 
         self._model = getattr(keras_models, relext_model_name)(model_params,
                                                          np.zeros((len(self._word2idx), 50), dtype='float32'),
-                                                         max_sent_len, len(keras_models.property2idx))
+                                                         config.Params.max_sent_len, len(keras_models.property2idx))
 
         self._model.load_weights(models_folder + relext_model_name + ".kerasmodel")
 

@@ -4,23 +4,25 @@
 # Author: Daniil Sorokin (ukp.tu-darmstadt.de/ukp-home/)
 #
 import numpy as np
-np.random.seed(1)
 
+import config
 from keras import callbacks
 from keras.utils import np_utils
 import hyperopt as hy
 import json
-
+import os
 from src import metrics
 from src import keras_models, embeddings
 from src import io
+
+np.random.seed(1)
 
 
 def f_train(params):
     model = getattr(keras_models, model_name)(params, embedding_matrix, max_sent_len, n_out)
     callback_history = model.fit(train_as_indices[:-1],
                                  [train_y_properties_one_hot],
-                                 epochs=20, batch_size=keras_models.model_params['batch_size'], verbose=1,
+                                 epochs=20, batch_size=config.Params.batch_size, verbose=1,
                                  validation_data=(
                                      val_as_indices[:-1], val_y_properties_one_hot),
                                  callbacks=[callbacks.EarlyStopping(monitor="val_loss", patience=1, verbose=1)])
@@ -32,7 +34,7 @@ def f_train(params):
 
 
 def evaluate(model, data_input, gold_output):
-    predictions = model.predict(data_input, batch_size=keras_models.model_params['batch_size'], verbose=1)
+    predictions = model.predict(data_input, batch_size=config.Params.batch_size, verbose=1)
     if len(predictions.shape) == 3:
         predictions_classes = np.argmax(predictions, axis=2)
         train_batch_f1 = metrics.accuracy_per_sentence(predictions_classes, gold_output)
@@ -47,7 +49,8 @@ def evaluate(model, data_input, gold_output):
         train_y_properties_stream = gold_output
 
     accuracy = metrics.accuracy(predictions_classes, train_y_properties_stream)
-    micro_scores = metrics.compute_micro_PRF(predictions_classes, train_y_properties_stream, empty_label=keras_models.p0_index)
+    micro_scores = metrics.compute_micro_PRF(predictions_classes, train_y_properties_stream,
+                                             empty_label=keras_models.p0_index)
     print("Results: Accuracy: ", accuracy)
     print("Results: Micro-Average F1: ", micro_scores)
     return predictions_classes, predictions
@@ -57,11 +60,11 @@ if __name__ == "__main__":
 
     model_name = "model_ContextWeighted"
     mode = 'train'
-    train_set="data/modeldata/data_train.json"
-    val_set="data/modeldata/data_test.json"
-    models_folder ="data/trained/lexnex"
+    train_set = os.path.join(config.model_data, 'modeldata', 'data_train.json')
+    val_set = os.path.join(config.model_data, 'modeldata', 'data_test.json')
+    models_folder = os.path.join(config.model_data, 'trained', 'lexnex')
 
-    embedding_matrix, word2idx = embeddings.load(keras_models.model_params['wordembeddings'])
+    embedding_matrix, word2idx = embeddings.load(config.Params.wordembeddings)
     print("Loaded embeddings:", embedding_matrix.shape)
 
     training_data, _ = io.load_relation_graphs_from_file(train_set, load_vertices=True)
@@ -70,7 +73,7 @@ if __name__ == "__main__":
     print("Training data size: {}".format(len(training_data)))
     print("Validation data size: {}".format(len(val_data)))
 
-    max_sent_len = keras_models.model_params['max_sent_len']
+    max_sent_len = config.Params.max_sent_len
     print("Max sentence length set to: {}".format(max_sent_len))
 
     to_one_hot = np_utils.to_categorical
@@ -93,7 +96,7 @@ if __name__ == "__main__":
     if "train" in mode:
         print("Training the model")
         print("Initialize the model")
-        model = getattr(keras_models, model_name)(keras_models.model_params, embedding_matrix, max_sent_len, n_out)
+        model = getattr(keras_models, model_name)(embedding_matrix, max_sent_len, n_out)
         if "continue" in mode:
             print("Load pre-trained weights")
             model.load_weights(models_folder + model_name + ".kerasmodel")
@@ -103,7 +106,7 @@ if __name__ == "__main__":
 
         callback_history = model.fit(train_as_indices[:-1],
                                      [train_y_properties_one_hot],
-                                     epochs=50, batch_size=keras_models.model_params['batch_size'], verbose=1,
+                                     epochs=50, batch_size=config.Params.batch_size, verbose=1,
                                      validation_data=(
                                          val_as_indices[:-1], val_y_properties_one_hot),
                                      callbacks=[callbacks.EarlyStopping(monitor="val_loss", patience=5, verbose=1),
@@ -123,13 +126,12 @@ if __name__ == "__main__":
         print("Best trial:", best)
         print("Details:", trials.best_trial)
         print("Saving trials.")
-        with open("../data/trials/" + model_name + "_final_trails.json", 'w') as ftf:
+        with open(os.path.join(config.model_data, 'trails', model_name + '_final_trails.json'), 'w') as ftf:
             json.dump([(t['misc']['vals'], t['result']) for t in trials.trials], ftf)
 
     print("Loading the best model")
-    model = getattr(keras_models, model_name)(keras_models.model_params, embedding_matrix, max_sent_len, n_out)
+    model = getattr(keras_models, model_name)(embedding_matrix, max_sent_len, n_out)
     model.load_weights(models_folder + model_name + ".kerasmodel")
-
 
     print("Results on the training set")
     evaluate(model, train_as_indices[:-1], train_as_indices[-1])

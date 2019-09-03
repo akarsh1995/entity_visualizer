@@ -1,3 +1,4 @@
+import os
 import re
 
 import nltk
@@ -9,6 +10,8 @@ from nltk.tokenize import WordPunctTokenizer
 from nltk.tokenize import word_tokenize
 from polyglot.text import Text
 from pycorenlp import StanfordCoreNLP
+
+import config
 
 tok = WordPunctTokenizer()
 sent_detector = nltk.tokenize.punkt.PunktSentenceTokenizer()
@@ -29,8 +32,9 @@ def tok_text(text):
 
 def stanford_ner(txt):
     classified_text = []
-    st = StanfordNERTagger("stanford-ner-2018-10-16/classifiers/english.all.3class.distsim.crf.ser.gz",
-                           "stanford-ner-2018-10-16/stanford-ner.jar", encoding='utf-8')
+    st = StanfordNERTagger(
+        os.path.join(config.stanford_ner_dir, 'classifiers', 'english.all.3class.distsim.crf.ser.gz'),
+        os.path.join(config.stanford_ner_dir, 'stanford-ner.jar'))
     tokenized_text = word_tokenize(txt)
     classified_text.append(st.tag(tokenized_text))
     return classified_text
@@ -246,8 +250,9 @@ def df_create_for_merge(df1, df2, df3, df4):
 
 
 def titledetect(text):
-    title = pd.read_csv("data/resources/titles_combined.txt", sep="\t", header=None)
+    title = pd.read_csv(os.path.join(config.model_data, 'resources', 'titles_combined.txt'), sep="\t", header=None)
     title = list(title[0])
+    return title
 
 
 def ner(text):
@@ -295,7 +300,7 @@ def ner(text):
     else:
         ner_common_final_df = pd.DataFrame()
     ner_common_final_df = ner_common_final_df.drop_duplicates()
-    map_df = pd.read_csv('data/mapping/entmapping.csv')
+    map_df = pd.read_csv(os.path.join(config.model_data, 'mapping', 'entmapping.csv'))
     map_df_spacy = map_df.rename(columns={'Initial': 'label_spacy'})
     map_df_nltk = map_df.rename(columns={'Initial': 'label_nltk'})
     map_df_poly = map_df.rename(columns={'Initial': 'label_poly'})
@@ -310,7 +315,8 @@ def ner(text):
     ner_common_final_df_1 = ner_common_final_df_1.rename(columns={'Final': 'label_poly'})
     ner_common_final_df_1 = ner_common_final_df_1.drop_duplicates()
     ner_common_final_df_1['Label'] = \
-    ner_common_final_df_1[list(ner_common_final_df_1.columns)[1:]].mode(axis=1, numeric_only=False, dropna=True)[[0]]
+        ner_common_final_df_1[list(ner_common_final_df_1.columns)[1:]].mode(axis=1, numeric_only=False, dropna=True)[
+            [0]]
     ner_common_final_df_1 = ner_common_final_df_1[['ent', 'Label']]
     ner_common_final_df_1 = ner_common_final_df_1.drop_duplicates(['ent'])
     ner_common_final_df_1['is_alphanum'] = list(
@@ -329,7 +335,7 @@ def check(string, sub_str):
 
 
 def create_list(full_text):
-    job_list = pd.read_csv("data/resources/titles.txt", sep="\t", header=None)
+    job_list = pd.read_csv(os.path.join(config.model_data, 'resources', 'titles.txt'), sep="\t", header=None)
     job_list = list(set(list(job_list[0])))
     regstring = re.compile("|".join(job_list))
     match_list = re.findall(regstring, full_text)

@@ -24,10 +24,10 @@ import gensim
 import threading
 import gensim.corpora as corpora
 import pandas as pd
+import config
 
 tok = WordPunctTokenizer()
 sent_detector = nltk.tokenize.punkt.PunktSentenceTokenizer()
-
 
 nlp = spacy.load('en_core_web_sm')
 nlp_spacy = spacy.load('en_core_web_sm')
@@ -38,11 +38,11 @@ stop_words.extend(['from', 'subject', 're', 'edu', 'use'])
 
 
 class AsyncNLPProcess(threading.Thread):
-    def __init__(self, Task_Complete, params):
+    def __init__(self, Task_Complete):
+        super().__init__()
         self.Task_Complete = Task_Complete
-        self.argsdict = params
 
-    def read_files(self,path, n):
+    def read_files(self, path, n):
         file_list_bw = glob.glob(path + "/**/*.json", recursive=True)
         data_tx = []
         for file_path in tqdm(file_list_bw):
@@ -53,20 +53,19 @@ class AsyncNLPProcess(threading.Thread):
                 item['file_path'] = file_path
                 data_tx.append(item)
         df_tx = pd.DataFrame.from_dict(data_tx)
-        if (n>0):
+        if (n > 0):
             df_tx = df_tx.head(n)
         df_tx = df_tx.rename(columns={"id": "doc_id", "content": "text"})
         return df_tx
 
-    def stanford_ner(self,argsdict,txt):
+    def stanford_ner(self, txt):
         classified_text = []
-        st = StanfordNERTagger(argsdict['crfpath'],argsdict['nerjarpath'], encoding='utf-8')
+        st = StanfordNERTagger(config.Config.crfpath, config.Config.nerjarpath, encoding='utf-8')
         tokenized_text = word_tokenize(txt)
         classified_text.append(st.tag(tokenized_text))
         return classified_text
 
-
-    def resolve(self,corenlp_output):
+    def resolve(self, corenlp_output):
         """ Transfer the word form of the antecedent to its associated pronominal anaphor(s) """
         for coref in corenlp_output['corefs']:
             mentions = corenlp_output['corefs'][coref]
@@ -78,10 +77,10 @@ class AsyncNLPProcess(threading.Thread):
                     target_sentence = mention['sentNum']
                     target_token = mention['startIndex'] - 1
                     # transfer the antecedent's word form to the appropriate token in the sentence
-                    corenlp_output['sentences'][target_sentence - 1]['tokens'][target_token]['word'] = antecedent['text']
+                    corenlp_output['sentences'][target_sentence - 1]['tokens'][target_token]['word'] = antecedent[
+                        'text']
 
-
-    def get_resolved(self,corenlp_output):
+    def get_resolved(self, corenlp_output):
         """ Get the "resolved" output """
         out = []
         possessives = ['hers', 'his', 'their', 'theirs']
@@ -95,8 +94,7 @@ class AsyncNLPProcess(threading.Thread):
                 out.append(output_word)
         return (' '.join(out))
 
-
-    def stan_core(self,text):
+    def stan_core(self, text):
         try:
             output = nlp_corenlp.annotate(text, properties={'annotators': 'dcoref', 'outputFormat': 'json',
                                                             'ner.useSUTime': 'false'})
@@ -107,8 +105,7 @@ class AsyncNLPProcess(threading.Thread):
             sent_no_articles = text
         return sent_no_articles
 
-
-    def stan_sub_list(self,nlist):
+    def stan_sub_list(self, nlist):
         allpers = []
         for k in range(0, len(nlist)):
             testlist = nlist[k]
@@ -150,8 +147,7 @@ class AsyncNLPProcess(threading.Thread):
             allorg.append(orglist)
         return allpers, allloc, allorg
 
-
-    def clean_text(self,txt):
+    def clean_text(self, txt):
         try:
             txt = re.sub(r'\r?\n|\r', '', txt)
             txt = re.sub(r'https\S+', '', txt, flags=re.MULTILINE)
@@ -161,11 +157,10 @@ class AsyncNLPProcess(threading.Thread):
             # txt = txt.replace('.','')
             txt = self.stan_core(txt)
         except:
-            return(txt)
+            return (txt)
         return str(txt)
 
-
-    def split_text(self,df):
+    def split_text(self, df):
         x1 = []
         x2 = []
         for i in tqdm(range(0, len(df))):
@@ -177,8 +172,7 @@ class AsyncNLPProcess(threading.Thread):
         return_df = pd.DataFrame({'file_path': x2, 'text': x1})
         return return_df
 
-
-    def create_sents(self,df):
+    def create_sents(self, df):
         for i in tqdm(range(0, len(df))):
             ndf = pd.DataFrame()
             sentences = sent_detector.tokenize(df.cleaned_coref_text[i])
@@ -190,8 +184,7 @@ class AsyncNLPProcess(threading.Thread):
                 sentdf = sentdf.append(ndf, ignore_index=True)
         return sentdf
 
-
-    def stan_final(self,l1, l2, l3, obj0):
+    def stan_final(self, l1, l2, l3, obj0):
         df_stan_ner = []
         for k in tqdm(range(0, len(l1))):
             l = l1[k]
@@ -227,8 +220,7 @@ class AsyncNLPProcess(threading.Thread):
         df_stan_ner = pd.DataFrame.from_dict(df_stan_ner)
         return df_stan_ner
 
-
-    def nltk_ner(self,txt, name, idx):
+    def nltk_ner(self, txt, name, idx):
         entlist = []
         for sent in nltk.sent_tokenize(txt):
             for chunk in nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(sent))):
@@ -242,8 +234,7 @@ class AsyncNLPProcess(threading.Thread):
                     entlist.append(tempdict)
         return entlist
 
-
-    def text_spacy_ner(self,txt, name, idx):
+    def text_spacy_ner(self, txt, name, idx):
         nlp = spacy.load('en_core_web_sm')
         doc = nlp_spacy(txt)
         entlist = []
@@ -258,13 +249,11 @@ class AsyncNLPProcess(threading.Thread):
                 entlist.append(tempdict)
         return entlist
 
-
-    def sent_to_words(self,sentences):
+    def sent_to_words(self, sentences):
         for sentence in sentences:
             yield (gensim.utils.simple_preprocess(str(sentence), deacc=True))  # deacc=True removes punctuations
 
-
-    def text_spacy_nc(self,txt, name, idx):
+    def text_spacy_nc(self, txt, name, idx):
         doc = nlp_spacy(txt)
         x1 = []
         x2 = []
@@ -295,10 +284,9 @@ class AsyncNLPProcess(threading.Thread):
         ncdf_final = ncdf.to_dict(orient="records")
         return ncdf_final
 
-
-    def mongowrite(self,argsdict, collname, df):
-        client = pymongo.MongoClient(argsdict['mongolink'])
-        db = client[argsdict['db']]
+    def mongowrite(self, collname, df):
+        client = pymongo.MongoClient(config.Config.mongolink)
+        db = client[config.Config.db]
         col0 = db[collname]
         try:
             mdict = df.to_dict(orient='records')
@@ -308,15 +296,13 @@ class AsyncNLPProcess(threading.Thread):
             print(str(e))
         pass
 
-
-    def tok_text(self,text):
+    def tok_text(self, text):
         lower_case = text.lower()
         words = tok.tokenize(lower_case)
         sentences = " ".join(words)
         return sentences
 
-
-    def polyglot_ner(self,txt, name, idx):
+    def polyglot_ner(self, txt, name, idx):
         text = Text(txt, hint_language_code='en')
         entlist = []
         for ent in text.entities:
@@ -329,12 +315,10 @@ class AsyncNLPProcess(threading.Thread):
             entlist.append(tempdict)
         return entlist
 
-
-    def remove_stopwords(self,texts):
+    def remove_stopwords(self, texts):
         return [[word for word in simple_preprocess(str(doc)) if word not in stop_words] for doc in texts]
 
-
-    def lemmatization(self,texts, allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']):
+    def lemmatization(self, texts, allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']):
         """https://spacy.io/api/annotation"""
         texts_out = []
         for sent in texts:
@@ -342,16 +326,14 @@ class AsyncNLPProcess(threading.Thread):
             texts_out.append([token.lemma_ for token in doc if token.pos_ in allowed_postags])
         return texts_out
 
-
-    def df_create_for_merge(self,df1, df2, df3, df4):
+    def df_create_for_merge(self, df1, df2, df3, df4):
         df1_final = df1[['docid', 'sent_id', 'ent', 'label_stan']]
         df2_final = df2[['docid', 'sent_id', 'ent', 'label_nltk']]
         df3_final = df3[['docid', 'sent_id', 'ent', 'label_spacy']]
         df4_final = df4[['docid', 'sent_id', 'ent', 'label_poly']]
         return df1_final, df2_final, df3_final, df4_final
 
-
-    def format_topics_sentences(self,ldamodel, corpus, texts):
+    def format_topics_sentences(self, ldamodel, corpus, texts):
         # Init output
         sent_topics_df = pd.DataFrame()
 
@@ -373,59 +355,59 @@ class AsyncNLPProcess(threading.Thread):
         sent_topics_df = pd.concat([sent_topics_df, contents], axis=1)
         return (sent_topics_df)
 
-
     def run(self):
-        argsdict = self.argsdict
         # read raw data
-        rawdata = self.read_files(argsdict['rawpath'],argsdict['n'])
+        rawdata = self.read_files(config.Config.rawpath, config.Config.n)
         filenames = list(rawdata.doc_id)
         # clean and coreference resolution
         stan_core_list = list(map(lambda x: self.clean_text(x), list(rawdata.text)))
         rawdata['cleaned_coref_text'] = stan_core_list
-        self.mongowrite(argsdict, argsdict['rawcoll'], rawdata)
+        self.mongowrite(config.Config.rawcoll, rawdata)
         # # upload rawdata to database
         # # create sentences
         sents = self.create_sents(rawdata)
         sents['sent_id'] = sents.groupby('docid').cumcount() + 1
-        self.mongowrite(argsdict, argsdict['sent_coll'], rawdata)
+        self.mongowrite(config.Config.sent_coll, rawdata)
         # # create Stanford NER
         stanner = Parallel(n_jobs=8, backend="multiprocessing")(
-            delayed(self.stanford_ner)(argsdict,sents.sentences[i]) for i in tqdm(range(0, len(sents))))
+            delayed(self.stanford_ner)(sents.sentences[i]) for i in tqdm(range(0, len(sents))))
         stanl1, stanl2, stanl3 = self.stan_sub_list(list(map(lambda x: x[0], stanner)))
         stan_ner_df_final = self.stan_final(stanl1, stanl2, stanl3, sents)
-        self.mongowrite(argsdict, argsdict['stan_ner'], stan_ner_df_final)
+        self.mongowrite(config.Config.stan_ner, stan_ner_df_final)
         # # create spacy ner
         df_spacy_ner = Parallel(n_jobs=8, backend="multiprocessing")(
             delayed(self.text_spacy_ner)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in
             tqdm(range(0, len(sents))))
         df_spacy_ner = [item for sublist in df_spacy_ner for item in sublist]
         df_spacy_ner = pd.DataFrame.from_dict(df_spacy_ner)
-        self.mongowrite(argsdict, argsdict['spacy_ner'], df_spacy_ner)
+        self.mongowrite(config.Config.spacy_ner, df_spacy_ner)
         # # Get polyglot NER
         df_poly_ner = Parallel(n_jobs=8)(
-            delayed(self.polyglot_ner)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in tqdm(range(0, len(sents))))
+            delayed(self.polyglot_ner)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in
+            tqdm(range(0, len(sents))))
         df_poly_ner = [item for sublist in df_poly_ner for item in sublist]
         df_poly_ner = pd.DataFrame.from_dict(df_poly_ner)
-        self.mongowrite(argsdict, argsdict['poly_ner'], df_poly_ner)
+        self.mongowrite(config.Config.poly_ner, df_poly_ner)
         # # get nltk ner
         df_nltk_ner = Parallel(n_jobs=8)(
-            delayed(self.nltk_ner)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in tqdm(range(0, len(sents))))
+            delayed(self.nltk_ner)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in
+            tqdm(range(0, len(sents))))
         df_nltk_ner = [item for sublist in df_nltk_ner for item in sublist]
         df_nltk_ner = pd.DataFrame.from_dict(df_nltk_ner)
-        self.mongowrite(argsdict, argsdict['nltk_ner'], df_nltk_ner)
+        self.mongowrite(config.Config.nltk_ner, df_nltk_ner)
         # get spacy noun chunks
         df_spacy_nc = Parallel(n_jobs=8, backend="multiprocessing")(
             delayed(self.text_spacy_nc)(sents.sentences[i], sents.docid[i], sents.sent_id[i]) for i in
             tqdm(range(0, len(sents))))
         df_spacy_nc = [item for sublist in df_spacy_nc for item in sublist]
         df_spacy_nc_2 = pd.DataFrame.from_dict(df_spacy_nc)
-        self.mongowrite(argsdict, argsdict['spacy_nc'], df_spacy_nc_2)
+        self.mongowrite(config.Config.spacy_nc, df_spacy_nc_2)
         ncdf_ver_doc_sent = df_spacy_nc_2.groupby(['docid', 'sent_id', 'Verb']).size().reset_index(name='counts')
-        self.mongowrite(argsdict, argsdict['verbbydocsent'], ncdf_ver_doc_sent)
+        self.mongowrite(config.Config.verbbydocsent, ncdf_ver_doc_sent)
         ncdf_ver = df_spacy_nc_2.groupby(['Verb']).size().reset_index(name='counts')
-        self.mongowrite(argsdict, argsdict['verb'], ncdf_ver)
+        self.mongowrite(config.Config.verb, ncdf_ver)
         nerstan_mer, nernltk_mer, nerspacy_mer, nerpoly_mer = self.df_create_for_merge(stan_ner_df_final, df_nltk_ner,
-                                                                                  df_spacy_ner, df_poly_ner)
+                                                                                       df_spacy_ner, df_poly_ner)
         if all([len(nerstan_mer) > 0, len(nerspacy_mer) > 0]):
             ner_common_1 = pd.merge(nerstan_mer, nerspacy_mer, how='outer', on=['ent', 'docid', 'sent_id'])
         elif any([len(nerstan_mer) > 0, len(nerspacy_mer) > 0]):
@@ -445,8 +427,8 @@ class AsyncNLPProcess(threading.Thread):
         else:
             ner_common_final_df = pd.DataFrame()
         ner_common_final_df = ner_common_final_df.drop_duplicates()
-        self.mongowrite(argsdict, argsdict['entgold'], ner_common_final_df)
-        #get curated sets
+        self.mongowrite(config.Config.entgold, ner_common_final_df)
+        # get curated sets
         choices = list(set(list(ner_common_final_df.ent)))
         list_ent_final = []
         for j in tqdm(range(0, len(choices))):
@@ -471,7 +453,7 @@ class AsyncNLPProcess(threading.Thread):
         result = [list(j) for j in set(tuple(j) for j in listcomp)]
         result = list(map(lambda x: list(filter(None, x)), result))
         if (len(result) > 0):
-            self.mongowrite(argsdict, argsdict['entcurated'], result)
+            self.mongowrite(config.Config.entcurated, result)
         # topic modeling
         data = rawdata.cleaned_coref_text.values.tolist()
         data_words = list(self.sent_to_words(data))
@@ -493,7 +475,7 @@ class AsyncNLPProcess(threading.Thread):
         df_dominant_topic['Document_No'] = rawdata['doc_id']
         df_dominant_topic.dropna(inplace=True)
         tops = lda_model.print_topics()
-        self.mongowrite(argsdict, argsdict['topic_coll'], df_dominant_topic)
+        self.mongowrite(config.Config.topic_coll, df_dominant_topic)
         Topics = list(map(lambda x: list(
             map(lambda x: {x.split("*")[1].replace("\"", "").strip(): float(x.split("*")[0])}, x[1].split("+"))), tops))
         tops = []
@@ -503,7 +485,7 @@ class AsyncNLPProcess(threading.Thread):
             tempdict['topickeys'] = Topics[i]
             tempdict['doc_id'] = list(rawdata.doc_id)
             tops.append(tempdict)
-        self.mongowrite(argsdict, argsdict['topics'], tops)
+        self.mongowrite(config.Config.topics, tops)
         # # cluster modelling
         hasher = TfidfVectorizer(stop_words='english')
         vector = make_pipeline(hasher, TfidfTransformer())
@@ -535,10 +517,10 @@ class AsyncNLPProcess(threading.Thread):
         df['Cluster_id'] = pred
         df['document_id'] = rawdata['doc_id']
         cluster_id_doc = df.drop_duplicates()
-        self.mongowrite(argsdict, argsdict['cluster_df'], cluster_id_doc)
-        self.mongowrite(argsdict, argsdict['cluster_word_df'], word_list)
+        self.mongowrite(config.Config.cluster_df, cluster_id_doc)
+        self.mongowrite(config.Config.cluster_word_df, word_list)
         # create word2vec model
-        wrdembedsent = list(map(lambda x: self.tok_text(x).split(),list(rawdata['cleaned_coref_text'])))
+        wrdembedsent = list(map(lambda x: self.tok_text(x).split(), list(rawdata['cleaned_coref_text'])))
         model = Word2Vec(wrdembedsent, min_count=1)
         model.wv.save_word2vec_format('model.txt', binary=False)
         return
