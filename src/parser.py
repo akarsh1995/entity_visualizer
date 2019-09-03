@@ -5,6 +5,7 @@
 #
 
 import numpy as np
+
 np.random.seed(1)
 
 import os
@@ -14,8 +15,9 @@ from src import keras_models
 from src import embeddings
 import config
 
+
 class RelParser:
-    def __init__(self, relext_model_name, models_folder="data/modeldata/"):
+    def __init__(self, relext_model_name, models_folder=os.path.join(config.model_data, 'modeldata')):
         """
         Initialize a new relation parser with the given model type. This class simplifies the loading of models and
         encapsulates encoding sentences into the correct format for the given model.
@@ -33,13 +35,14 @@ class RelParser:
         print("Loaded embeddings:", self._embeddings.shape)
         self._idx2word = {v: k for k, v in self._word2idx.items()}
 
-        self._model = getattr(keras_models, relext_model_name)(model_params,
-                                                         np.zeros((len(self._word2idx), 50), dtype='float32'),
-                                                         config.Params.max_sent_len, len(keras_models.property2idx))
+        self._model = getattr(keras_models, relext_model_name)(np.zeros((len(self._word2idx), 50), dtype='float32'),
+                                                               config.Params.max_sent_len,
+                                                               len(keras_models.property2idx))
 
-        self._model.load_weights(models_folder + relext_model_name + ".kerasmodel")
+        self._model.load_weights(os.path.join(models_folder, relext_model_name + ".kerasmodel"))
 
-        with codecs.open("data/resources/labellist/properties-with-labels.txt", encoding='utf-8') as infile:
+        with codecs.open(os.path.join(config.model_data, 'resources', 'properties-with-labels.txt'),
+                         encoding='utf-8') as infile:
             self._property2label = {l.split("\t")[0]: l.split("\t")[1].strip() for l in infile.readlines()}
 
         self._graphs_to_indices = keras_models.to_indices
@@ -70,7 +73,8 @@ class RelParser:
                 for i, e in enumerate(g['edgeSet']):
                     if i < len(g_classes):
                         e['kbID'] = keras_models.idx2property[g_classes[i]]
-                        e["lexicalInput"] = self._property2label[e['kbID']] if e['kbID'] in self._property2label else embeddings.all_zeroes
+                        e["lexicalInput"] = self._property2label[e['kbID']] if e[
+                                                                                   'kbID'] in self._property2label else embeddings.all_zeroes
                     else:
                         e['kbID'] = "P0"
                         e["lexicalInput"] = embeddings.all_zeroes

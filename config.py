@@ -8,6 +8,7 @@ mongo_pass = os.environ.get('MONGODB_PASS')
 mongo_host = os.environ.get('MONGODB_HOST')
 print(model_data)
 
+
 class Params:
     rnn1_layers = 1
     bidirectional = False
@@ -47,5 +48,6 @@ class Config:
     crfpath = os.path.join(stanford_ner_dir, "classifiers", "english.all.3class.distsim.crf.ser.gz")
     nerjarpath = os.path.join(stanford_ner_dir, "stanford-ner.jar")
 
-params_dict = {k: v for k, v in [(attribute, getattr(Config, attribute)) for attribute in dir(Config) if not callable(getattr(Config, attribute)) and '__' not in attribute]}
 
+params_dict = {k: v for k, v in [(attribute, getattr(Config, attribute)) for attribute in dir(Config) if
+                                 not callable(getattr(Config, attribute)) and '__' not in attribute]}

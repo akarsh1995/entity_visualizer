@@ -71,7 +71,7 @@ def predict_dl():
         edges = entity_extraction.generate_edges(entity_fragments)
         non_parsed_graph = {'tokens': [t for t, _, _ in tagged],
                             'edgeSet': edges}
-        relparser = RelParser("model_ContextWeighted", models_folder="data/trained/")
+        relparser = RelParser("model_ContextWeighted", models_folder=os.path.join(config.model_data, 'trained'))
         parsed_graph = relparser.classify_graph_relations([non_parsed_graph])
         log = {}
         log['relation_graph'] = parsed_graph[0]
