@@ -9,7 +9,6 @@ from nltk.tag import StanfordNERTagger
 from nltk.tokenize import WordPunctTokenizer
 from nltk.tokenize import word_tokenize
 from polyglot.text import Text
-from pycorenlp import StanfordCoreNLP
 
 import config
 
@@ -17,7 +16,7 @@ tok = WordPunctTokenizer()
 sent_detector = nltk.tokenize.punkt.PunktSentenceTokenizer()
 nlp = spacy.load('en_core_web_sm')
 nlp_spacy = spacy.load('en_core_web_sm')
-nlp_corenlp = StanfordCoreNLP('http://localhost:9000')
+from config import nlp_corenlp
 nltk.download('stopwords')
 stop_words = stopwords.words('english')
 stop_words.extend(['from', 'subject', 're', 'edu', 'use'])

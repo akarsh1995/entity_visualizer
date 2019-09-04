@@ -6,7 +6,6 @@ from src import entity_extraction
 from src import nlpent
 from keras import backend as K
 import json
-from pycorenlp import StanfordCoreNLP
 import os
 import sys
 import config
@@ -16,7 +15,7 @@ from rake_nltk import Rake
 app = Flask(__name__)
 app.config["DEBUG"] = False
 CORS(app)
-nlp_corenlp = StanfordCoreNLP('http://localhost:9000')
+from config import nlp_corenlp
 
 
 def getkeys(text):

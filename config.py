@@ -1,14 +1,13 @@
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from pycorenlp import StanfordCoreNLP
 
 model_data = os.environ.get('ENTITY_DETECTOR_MODEL_DIR')
-stanford_core_nlp_dir = os.environ.get('STANFORD_CORE_NLP')
 stanford_ner_dir = os.environ.get('STANFORD_NER_DIR')
 mongo_id = os.environ.get('MONGODB_ID')
 mongo_pass = os.environ.get('MONGODB_PASS')
 mongo_host = os.environ.get('MONGODB_HOST')
+core_nlp_host = os.environ.get('CORE_NLP_HOST')
+core_nlp_port = os.environ.get('CORE_NLP_PORT')
 
 
 class Params:
@@ -28,7 +27,6 @@ class Params:
 
 class Config:
     mongolink = f"mongodb://{mongo_id}:{mongo_pass}@{mongo_host}:27017/"
-    # f"mongodb://entdetectadmin:wast232word627@mongodb-756-0.cloudclusters.net:27017/"
     db = "lexnex"
     n = -1
     rawpath = model_data
@@ -53,3 +51,5 @@ class Config:
 
 params_dict = {k: v for k, v in [(attribute, getattr(Config, attribute)) for attribute in dir(Config) if
                                  not callable(getattr(Config, attribute)) and '__' not in attribute]}
+
+nlp_corenlp = StanfordCoreNLP(f'http://{core_nlp_host}:{core_nlp_port}')

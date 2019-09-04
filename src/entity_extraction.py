@@ -5,7 +5,7 @@
 #
 
 import nltk
-from pycorenlp import StanfordCoreNLP
+from config import nlp_corenlp
 
 np_grammar = r"""
     NP:
@@ -17,7 +17,6 @@ np_grammar = r"""
     {<CD>+}
     """
 np_parser = nltk.RegexpParser(np_grammar)
-corenlp = StanfordCoreNLP('http://localhost:9000')
 corenlp_properties = {
     'annotators': 'tokenize, pos, ner',
     'outputFormat': 'json'
@@ -28,7 +27,7 @@ def get_tagged_from_server(input_text):
     """
     Send the input_text to the CoreNLP server and retrieve the tokens, named entity tags and part-of-speech tags.
     """
-    corenlp_output = corenlp.annotate(input_text,properties=corenlp_properties).get("sentences", [])[0]
+    corenlp_output = nlp_corenlp.annotate(input_text, properties=corenlp_properties).get("sentences", [])[0]
     tagged = [(t['originalText'], t['ner'], t['pos']) for t in corenlp_output['tokens']]
     return tagged
 
