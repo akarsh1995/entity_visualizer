@@ -1,7 +1,4 @@
-# coding: utf-8
-# Copyright (C) 2016 UKP lab
-#
-# Author: Daniil Sorokin (ukp.tu-darmstadt.de/ukp-home/)
+# Author: Daniil Sorokin
 #
 import ast
 import json

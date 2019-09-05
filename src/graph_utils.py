@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2016 UKP lab
-#
-# Author: Daniil Sorokin (ukp.tu-darmstadt.de/ukp-home/)
-#
 # Note: Throughout the code we refer to a conjunction of relations in the same sentence as '(relation) graph'
 
 import numpy as np

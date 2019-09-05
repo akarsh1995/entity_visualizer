@@ -1,9 +1,3 @@
-# coding: utf-8
-# Copyright (C) 2016 UKP lab
-#
-# Author: Daniil Sorokin (ukp.tu-darmstadt.de/ukp-home/)
-#
-
 import numpy as np
 
 np.random.seed(1)

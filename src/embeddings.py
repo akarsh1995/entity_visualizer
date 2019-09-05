@@ -1,8 +1,3 @@
-# coding: utf-8
-# Copyright (C) 2016 UKP lab
-#
-# Author: Daniil Sorokin (ukp.tu-darmstadt.de/ukp-home/)
-# 
 # Embeddings and vocabulary utility methods
 
 import numpy as np
